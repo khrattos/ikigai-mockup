@@ -252,8 +252,8 @@ function buildBlogListing(articles) {
     const delay = i % 3 > 0 ? ` reveal-delay-${i % 3}` : '';
     return `
         <article class="reveal${delay} bg-white rounded-2xl overflow-hidden cursor-pointer" style="transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'" onclick="window.location.href='/blog/${a.slug}.html'">
-          <div class="aspect-[16/10] bg-surface flex items-center justify-center">
-            <span class="text-text-muted text-[13px]">Imagen</span>
+          <div class="aspect-[16/10] bg-surface overflow-hidden">
+            <img src="/images/blog/${a.slug}.jpg" alt="${a.title.es}" class="w-full h-full object-cover" loading="lazy">
           </div>
           <div class="p-6">
             <div class="flex items-center gap-3 mb-3">
@@ -321,8 +321,8 @@ ${categoryButtons}
   <section class="py-16 md:py-24 bg-bg">
     <div class="max-w-[1440px] mx-auto px-6 md:px-10 lg:px-16">
       <div class="reveal grid lg:grid-cols-[1.4fr_1fr] gap-10 bg-white rounded-2xl overflow-hidden cursor-pointer" style="transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'" onclick="window.location.href='/blog/${featured.slug}.html'">
-        <div class="aspect-[16/9] lg:aspect-auto bg-surface flex items-center justify-center min-h-[280px]">
-          <span class="text-text-muted text-[13px]">Imagen del artículo</span>
+        <div class="aspect-[16/9] lg:aspect-auto bg-surface overflow-hidden min-h-[280px]">
+          <img src="/images/blog/${featured.slug}.jpg" alt="${featured.title.es}" class="w-full h-full object-cover">
         </div>
         <div class="p-8 md:p-10 flex flex-col justify-center">
           <div class="flex items-center gap-3 mb-4">
@@ -402,8 +402,8 @@ function buildArticlePage(article, lang, allArticles) {
     const href = isES ? `/blog/${a.slug}.html` : `/blog/en/${a.slug}.html`;
     return `
           <article class="reveal${delay} bg-white rounded-2xl overflow-hidden cursor-pointer" style="transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'" onclick="window.location.href='${href}'">
-            <div class="aspect-[16/10] bg-surface flex items-center justify-center">
-              <span class="text-text-muted text-[13px]">Imagen</span>
+            <div class="aspect-[16/10] bg-surface overflow-hidden">
+              <img src="/images/blog/${a.slug}.jpg" alt="${a.title[lang]}" class="w-full h-full object-cover" loading="lazy">
             </div>
             <div class="p-6">
               <div class="flex items-center gap-3 mb-3">
@@ -450,8 +450,8 @@ ${navHTML('/')}
   <!-- ARTICLE IMAGE -->
   <section class="bg-bg">
     <div class="max-w-[800px] mx-auto px-6 md:px-10">
-      <div class="reveal aspect-[16/9] bg-surface rounded-2xl flex items-center justify-center">
-        <span class="text-text-muted text-[13px]">Imagen del artículo</span>
+      <div class="reveal aspect-[16/9] bg-surface rounded-2xl overflow-hidden">
+        <img src="/images/blog/${article.slug}.jpg" alt="${title}" class="w-full h-full object-cover">
       </div>
     </div>
   </section>
