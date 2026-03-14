@@ -1,0 +1,215 @@
+{
+  "name": "Ikigai Blog — Weekly Article Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 21,
+              "triggerAtDay": 7
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Weekly Sunday 9PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "filePath": "/Users/Targo/Downloads/ikigai-mockup/data/articles.json",
+        "options": {}
+      },
+      "id": "read-articles",
+      "name": "Read articles.json",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4096, messages: [{ role: 'user', content: 'You are a content strategist for Ikigai Studio, a tech consultancy in Panama specializing in automation, AI, WhatsApp, voice agents, and AI SEO.\\n\\nGenerate a NEW blog article. Existing article slugs (do NOT repeat these topics): ' + JSON.parse($json.data).map(a => a.slug).join(', ') + '\\n\\nWrite a complete article in BOTH Spanish and English. Target audience: business owners in Central America (Panama, Costa Rica, Guatemala, El Salvador, Honduras).\\n\\nStyle: Professional but accessible. Use tú (informal) in Spanish. Include real numbers, costs, percentages. 800-1200 words per language.\\n\\nStructure: Hook opening → 3-5 H2 sections → practical examples with costs → subtle CTA\\n\\nReturn ONLY a JSON object (no markdown fences) with this structure:\\n{\\n  \"slug\": \"kebab-case-in-spanish\",\\n  \"title\": { \"es\": \"...\", \"en\": \"...\" },\\n  \"description\": { \"es\": \"max 160 chars\", \"en\": \"max 160 chars\" },\\n  \"category\": { \"es\": \"...\", \"en\": \"...\" },\\n  \"readTime\": \"X min\",\\n  \"body\": { \"es\": \"<p>HTML...</p>\", \"en\": \"<p>HTML...</p>\" }\\n}\\n\\nCategories to choose from: Automatización/Automation, Inteligencia Artificial/AI, WhatsApp, Voice AI, AI SEO, Casos/Case Studies\\n\\nHTML rules for body: Use h2, h3, p, ul/ol/li, strong, table/tr/th/td. No h1, no images.' }] }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "claude-generate",
+      "name": "Generate Article (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's response\nconst response = $input.first().json;\nconst textContent = response.content[0].text;\n\n// Parse the article JSON from Claude's response\nlet article;\ntry {\n  // Try to extract JSON from the response (handle markdown fences if present)\n  const jsonMatch = textContent.match(/\\{[\\s\\S]*\\}/);\n  article = JSON.parse(jsonMatch[0]);\n} catch (e) {\n  throw new Error('Failed to parse article JSON from Claude response: ' + e.message);\n}\n\n// Add metadata\nconst today = new Date().toISOString().split('T')[0];\narticle.date = today;\narticle.featured = false;\narticle.status = 'draft';\n\n// Read current articles\nconst fs = require('fs');\nconst articlesPath = '/Users/Targo/Downloads/ikigai-mockup/data/articles.json';\nconst articles = JSON.parse(fs.readFileSync(articlesPath, 'utf-8'));\n\n// Add new article\narticles.push(article);\n\n// Save\nfs.writeFileSync(articlesPath, JSON.stringify(articles, null, 2), 'utf-8');\n\nreturn [{\n  json: {\n    article,\n    totalArticles: articles.length,\n    previewEs: article.title.es + '\\n\\n' + article.description.es,\n    previewEn: article.title.en + '\\n\\n' + article.description.en\n  }\n}];"
+      },
+      "id": "format-save-draft",
+      "name": "Format & Save Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "approval-check",
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-approval",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "options": {
+          "webhookSuffix": "blog-approval"
+        }
+      },
+      "id": "wait-approval",
+      "name": "Wait for Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Publish the article: change status to published\nconst fs = require('fs');\nconst articlesPath = '/Users/Targo/Downloads/ikigai-mockup/data/articles.json';\nconst articles = JSON.parse(fs.readFileSync(articlesPath, 'utf-8'));\n\nconst slug = $('Format & Save Draft').first().json.article.slug;\nconst article = articles.find(a => a.slug === slug);\nif (article) {\n  article.status = 'published';\n  fs.writeFileSync(articlesPath, JSON.stringify(articles, null, 2), 'utf-8');\n}\n\nreturn [{ json: { slug, status: 'published' } }];"
+      },
+      "id": "publish-article",
+      "name": "Publish Article",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 200]
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/Targo/Downloads/ikigai-mockup && node scripts/build-blog.js"
+      },
+      "id": "build-html",
+      "name": "Build Blog HTML",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1760, 200]
+    },
+    {
+      "parameters": {
+        "command": "cd /Users/Targo/Downloads/ikigai-mockup && git add -A && git commit -m \"New article: {{ $('Format & Save Draft').first().json.article.title.es }}\" && git push"
+      },
+      "id": "git-push",
+      "name": "Git Push",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1980, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reject: remove draft from articles.json\nconst fs = require('fs');\nconst articlesPath = '/Users/Targo/Downloads/ikigai-mockup/data/articles.json';\nconst articles = JSON.parse(fs.readFileSync(articlesPath, 'utf-8'));\n\nconst slug = $('Format & Save Draft').first().json.article.slug;\nconst filtered = articles.filter(a => a.slug !== slug);\nfs.writeFileSync(articlesPath, JSON.stringify(filtered, null, 2), 'utf-8');\n\nreturn [{ json: { slug, status: 'rejected_and_removed' } }];"
+      },
+      "id": "reject-article",
+      "name": "Remove Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 420]
+    }
+  ],
+  "connections": {
+    "Weekly Sunday 9PM": {
+      "main": [
+        [{ "node": "Read articles.json", "type": "main", "index": 0 }]
+      ]
+    },
+    "Read articles.json": {
+      "main": [
+        [{ "node": "Generate Article (Claude)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate Article (Claude)": {
+      "main": [
+        [{ "node": "Format & Save Draft", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format & Save Draft": {
+      "main": [
+        [{ "node": "Wait for Approval", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait for Approval": {
+      "main": [
+        [{ "node": "Approved?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [{ "node": "Publish Article", "type": "main", "index": 0 }],
+        [{ "node": "Remove Draft", "type": "main", "index": 0 }]
+      ]
+    },
+    "Publish Article": {
+      "main": [
+        [{ "node": "Build Blog HTML", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Blog HTML": {
+      "main": [
+        [{ "node": "Git Push", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    { "name": "blog" },
+    { "name": "content" }
+  ]
+}
