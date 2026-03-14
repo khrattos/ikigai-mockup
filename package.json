@@ -1,0 +1,7 @@
+{
+  "name": "ikigai-mockup",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-blog.js"
+  }
+}
